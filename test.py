@@ -4,7 +4,7 @@ from core.dataset import KITTI_2012, KITTI_2015
 from core.evaluation import eval_flow_avg, load_gt_flow_kitti
 from core.evaluation import eval_depth
 from core.visualize import Visualizer_debug
-from core.networks import Model_depth_pose, Model_flow, Model_flowposenet
+from core.networks import Model_depth_pose, Model_flow, Model_flowposenet, Model_gmflow
 from core.evaluation import load_gt_flow_kitti, load_gt_mask
 import torch
 from tqdm import tqdm
@@ -55,7 +55,7 @@ def test_kitti_2015(cfg, model, gt_flows, noc_masks, gt_masks, depth_save_dir=No
         img1, img2 = img[:,:,:img_h,:], img[:,:,img_h:,:]
         img_list.append(img1)
         img1, img2, K, K_inv = img1.cuda(), img2.cuda(), K.cuda(), K_inv.cuda()
-        if cfg.mode == 'flow' or cfg.mode == 'flowposenet':
+        if cfg.mode == 'flow' or cfg.mode == 'flowposenet' or cfg.mode == 'gmflow':
             flow = model.inference_flow(img1, img2)
         else:
             flow, disp1, disp2, Rt, _, _ = model.inference(img1, img2, K, K_inv)
@@ -196,6 +196,16 @@ def test_single_image(img_path, model, training_hw, save_dir='./'):
     visualizer.save_disp_color_img(disp_resized, name='demo')
     print('Depth prediction saved in ' + save_dir)
 
+def test_depth_pose_flow(img_path, model, training_hw, save_dir='./'):
+    test_single_image(img_path, model, training_hw)
+    img = cv2.imread(img_path)
+    img_h = int(img.shape[2] / 2)
+    img1, img2 = img[:,:,:img_h,:], img[:,:,img_h:,:]
+    img1, img2 = img1.cuda(), img2.cuda()
+    flow = model.inference_flow(img1, img2)
+    visualizer = Visualizer_debug(dump_dir=save_dir)
+    visualizer.save_disp_color_img(flow, name='demo')
+    print('Flow prediction saved in ' + save_dir)
 
 if __name__ == '__main__':
     import argparse
@@ -235,11 +245,13 @@ if __name__ == '__main__':
         model = Model_flow(cfg_new)
     elif args.mode == 'depth' or args.mode == 'flow_3stage':
         model = Model_depth_pose(cfg_new)
-    elif args.mode == 'flowposenet':
+    elif args.mode == 'flowposenet' or args.mode == 'gmflow':
         model = Model_flowposenet(cfg_new)
     
     if args.task == 'demo':
         model = Model_depth_pose(cfg_new)
+    elif args.task == 'gmflow':
+        model = Model_flowposenet(cfg_new)
 
     model.cuda()
     weights = torch.load(args.pretrained_model)

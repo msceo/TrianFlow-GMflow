@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from structures import *
+from model_gmflow import Model_gmflow
 from model_flow import Model_flow
 import pdb
 import cv2
@@ -11,8 +12,13 @@ import cv2
 class Model_triangulate_pose(nn.Module):
     def __init__(self, cfg):
         super(Model_triangulate_pose, self).__init__()
-        self.model_flow = Model_flow(cfg)
         self.mode = cfg.mode
+        # Separate Trianflow and GMflow
+        if self.mode == 'gmflow':
+            self.model_flow = Model_gmflow(cfg)
+        else:
+            self.model_flow = Model_flow(cfg)
+        
         if cfg.dataset == 'nyuv2':
             self.inlier_thres = 0.1
             self.rigid_thres = 1.0

@@ -8,6 +8,7 @@ import torch.nn.functional as F
 import numpy as np
 import pdb
 import cv2
+from gmflow.gmflow import GMFlow
 
 def transformerFwd(U,
                    flo,
@@ -148,16 +149,17 @@ def transformerFwd(U,
     return output
 
 
-class Model_flow(nn.Module):
+class Model_gmflow(nn.Module):
     def __init__(self, cfg):
         super(Model_flow, self).__init__()
         self.fpyramid = FeaturePyramid()
-        self.pwc_model = PWC_tf()
+        # self.pwc_model = PWC_tf()
+        self.gmflow_model = GMFlow().to(torch.device('cuda'))
         if cfg.mode == 'depth' or cfg.mode == 'flowposenet':
             # Stage 2 training
             for param in self.fpyramid.parameters():
                 param.requires_grad = False
-            for param in self.pwc_model.parameters():
+            for param in self.gmflow_model.parameters():
                 param.requires_grad = False
         
         # hyperparameters
@@ -165,6 +167,11 @@ class Model_flow(nn.Module):
         self.num_scales = cfg.num_scales
         self.flow_consist_alpha = cfg.h_flow_consist_alpha
         self.flow_consist_beta = cfg.h_flow_consist_beta
+
+        # load pretrained weights while initialize
+        checkpoint = torch.load('/home/zephyr/TrianFlow/pretrained/gmflow_sintel-0c07dcb3.pth')
+        weights = checkpoint['model']
+        self.gmflow_model.load_state_dict(weights)
 
     def get_occlusion_mask_from_flow(self, tensor_size, flow):
         mask = torch.ones(tensor_size).to(flow.get_device())
@@ -291,9 +298,10 @@ class Model_flow(nn.Module):
         return loss
 
     def inference_flow(self, img1, img2):
-        img_hw = [img1.shape[2], img1.shape[3]]
-        feature_list_1, feature_list_2 = self.fpyramid(img1), self.fpyramid(img2)
-        optical_flow = self.pwc_model(feature_list_1, feature_list_2, img_hw)[0]
+        # img_hw = [img1.shape[2], img1.shape[3]]
+        # feature_list_1, feature_list_2 = self.fpyramid(img1), self.fpyramid(img2)
+        # optical_flow = self.gmflow_model(feature_list_1, feature_list_2, img_hw)[0]
+        optical_flow = self.gmflow_model(img1, img2)
         return optical_flow
     
     def inference_corres(self, img1, img2):
@@ -301,8 +309,10 @@ class Model_flow(nn.Module):
         
         # get the optical flows and reverse optical flows for each pair of adjacent images
         feature_list_1, feature_list_2 = self.fpyramid(img1), self.fpyramid(img2)
-        optical_flows = self.pwc_model(feature_list_1, feature_list_2, [img_h, img_w])
-        optical_flows_rev = self.pwc_model(feature_list_2, feature_list_1, [img_h, img_w])
+        # optical_flows = self.gmflow_model(feature_list_1, feature_list_2, [img_h, img_w])
+        # optical_flows_rev = self.gmflow_model(feature_list_2, feature_list_1, [img_h, img_w])
+        optical_flows = self.gmflow_model(img1, img2)
+        optical_flows_rev = self.gmflow_model(img2, img1)
 
         # get occlusion masks
         img2_visible_masks, img1_visible_masks = self.get_visible_masks(optical_flows, optical_flows_rev)
@@ -327,9 +337,12 @@ class Model_flow(nn.Module):
         #cv2.imwrite('./test2.png', np.transpose(255*img2[0].cpu().detach().numpy(), [1,2,0]).astype(np.uint8))
         #pdb.set_trace()
         # get the optical flows and reverse optical flows for each pair of adjacent images
-        feature_list_1, feature_list_2 = self.fpyramid(img1), self.fpyramid(img2)
-        optical_flows = self.pwc_model(feature_list_1, feature_list_2, [img_h, img_w])
-        optical_flows_rev = self.pwc_model(feature_list_2, feature_list_1, [img_h, img_w])
+        # feature_list_1, feature_list_2 = self.fpyramid(img1), self.fpyramid(img2)
+        # optical_flows = self.gmflow_model(feature_list_1, feature_list_2, [img_h, img_w])
+        # optical_flows_rev = self.gmflow_model(feature_list_2, feature_list_1, [img_h, img_w])
+        # REPLACE with gmflow
+        optical_flows = self.gmflow_model(img1, img2)
+        optical_flows_rev = self.gmflow_model(img2, img1)
         
         # get occlusion masks
         img2_visible_masks, img1_visible_masks = self.get_visible_masks(optical_flows, optical_flows_rev)
@@ -376,3 +389,4 @@ class Model_flow(nn.Module):
             return loss_pack, optical_flows[0], optical_flows_rev[0], img1_valid_masks[0], img2_valid_masks[0], fwd_flow_diff_pyramid[0], bwd_flow_diff_pyramid[0]
         else:
             return loss_pack
+

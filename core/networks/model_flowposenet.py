@@ -3,6 +3,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from structures import *
 from pytorch_ssim import SSIM
 from model_flow import Model_flow
+from model_gmflow import Model_gmflow
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'visualize'))
 from visualizer import *
 from profiler import Profiler
@@ -73,7 +74,10 @@ class Model_flowposenet(nn.Module):
         super(Model_flowposenet, self).__init__()
         assert cfg.depth_scale == 1
         self.pose_net = FlowPoseNet()
-        self.model_flow = Model_flow(cfg)
+        if cfg.mode == 'gmflow':
+            self.model_flow == Model_gmflow(cfg)
+        else:
+            self.model_flow == Model_flow(cfg)
         self.depth_net = Depth_Model(cfg.depth_scale)
     
     def compute_pairwise_loss(self, tgt_img, ref_img, tgt_depth, ref_depth, pose, intrinsic):
