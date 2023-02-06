@@ -243,7 +243,8 @@ if __name__ == '__main__':
 
     model.cuda()
     weights = torch.load(args.pretrained_model)
-    model.load_state_dict(weights['model_state_dict'])
+    # GMFlow weights already loaded in Model_flow
+    model.load_state_dict(weights['model_state_dict'], strict=False)
     model.eval()
     print('Model Loaded.')
 
