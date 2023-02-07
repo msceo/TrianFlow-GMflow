@@ -151,7 +151,7 @@ def transformerFwd(U,
 
 class Model_gmflow(nn.Module):
     def __init__(self, cfg):
-        super(Model_flow, self).__init__()
+        super(Model_gmflow, self).__init__()
         self.fpyramid = FeaturePyramid()
         # self.pwc_model = PWC_tf()
         self.gmflow_model = GMFlow().to(torch.device('cuda'))
@@ -169,7 +169,7 @@ class Model_gmflow(nn.Module):
         self.flow_consist_beta = cfg.h_flow_consist_beta
 
         # load pretrained weights while initialize
-        checkpoint = torch.load('/home/zephyr/TrianFlow/pretrained/gmflow_sintel-0c07dcb3.pth')
+        checkpoint = torch.load('/home/zephyr/TrianFlow-GMflow/pretrained/gmflow_sintel-0c07dcb3.pth')
         weights = checkpoint['model']
         self.gmflow_model.load_state_dict(weights)
 
@@ -299,20 +299,20 @@ class Model_gmflow(nn.Module):
 
     def inference_flow(self, img1, img2):
         # img_hw = [img1.shape[2], img1.shape[3]]
-        # feature_list_1, feature_list_2 = self.fpyramid(img1), self.fpyramid(img2)
+        feature_list_1, feature_list_2 = self.fpyramid(img1), self.fpyramid(img2)
         # optical_flow = self.gmflow_model(feature_list_1, feature_list_2, img_hw)[0]
-        optical_flow = self.gmflow_model(img1, img2)
+        optical_flow = self.gmflow_model(feature_list_1, feature_list_2)
         return optical_flow
     
     def inference_corres(self, img1, img2):
-        batch_size, img_h, img_w = img1.shape[0], img1.shape[2], img1.shape[3]
+        # batch_size, img_h, img_w = img1.shape[0], img1.shape[2], img1.shape[3]
         
         # get the optical flows and reverse optical flows for each pair of adjacent images
         feature_list_1, feature_list_2 = self.fpyramid(img1), self.fpyramid(img2)
         # optical_flows = self.gmflow_model(feature_list_1, feature_list_2, [img_h, img_w])
         # optical_flows_rev = self.gmflow_model(feature_list_2, feature_list_1, [img_h, img_w])
-        optical_flows = self.gmflow_model(img1, img2)
-        optical_flows_rev = self.gmflow_model(img2, img1)
+        optical_flows = self.gmflow_model(feature_list_1, feature_list_2)
+        optical_flows_rev = self.gmflow_model(feature_list_2, feature_list_1)
 
         # get occlusion masks
         img2_visible_masks, img1_visible_masks = self.get_visible_masks(optical_flows, optical_flows_rev)

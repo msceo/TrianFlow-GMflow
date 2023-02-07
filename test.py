@@ -4,8 +4,9 @@ from core.dataset import KITTI_2012, KITTI_2015
 from core.evaluation import eval_flow_avg, load_gt_flow_kitti
 from core.evaluation import eval_depth
 from core.visualize import Visualizer_debug
-from core.networks import Model_depth_pose, Model_flow, Model_flowposenet, Model_gmflow
+from core.networks import Model_depth_pose, Model_flow, Model_flowposenet
 from core.evaluation import load_gt_flow_kitti, load_gt_mask
+from core.dataset.kitti_prepared import KITTI_Prepared
 import torch
 from tqdm import tqdm
 import pdb
@@ -196,17 +197,6 @@ def test_single_image(img_path, model, training_hw, save_dir='./'):
     visualizer.save_disp_color_img(disp_resized, name='demo')
     print('Depth prediction saved in ' + save_dir)
 
-def test_depth_pose_flow(img_path, model, training_hw, save_dir='./'):
-    test_single_image(img_path, model, training_hw)
-    img = cv2.imread(img_path)
-    img_h = int(img.shape[2] / 2)
-    img1, img2 = img[:,:,:img_h,:], img[:,:,img_h:,:]
-    img1, img2 = img1.cuda(), img2.cuda()
-    flow = model.inference_flow(img1, img2)
-    visualizer = Visualizer_debug(dump_dir=save_dir)
-    visualizer.save_disp_color_img(flow, name='demo')
-    print('Flow prediction saved in ' + save_dir)
-
 if __name__ == '__main__':
     import argparse
     arg_parser = argparse.ArgumentParser(
@@ -250,7 +240,7 @@ if __name__ == '__main__':
     
     if args.task == 'demo':
         model = Model_depth_pose(cfg_new)
-    elif args.task == 'gmflow':
+    elif args.task == 'test':
         model = Model_flowposenet(cfg_new)
 
     model.cuda()
